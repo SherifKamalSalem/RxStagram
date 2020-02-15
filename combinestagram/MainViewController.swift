@@ -28,6 +28,7 @@
 
 import UIKit
 import RxSwift
+import RxCocoa
 
 class MainViewController: UIViewController {
 
@@ -37,15 +38,31 @@ class MainViewController: UIViewController {
   @IBOutlet weak var itemAdd: UIBarButtonItem!
 
   private let bag = DisposeBag()
-  private let images = BehaviourRelay<[UIImage]>(value: [])
+  private let images = BehaviorRelay<[UIImage]>(value: [])
   
   override func viewDidLoad() {
     super.viewDidLoad()
-
+    images
+      .subscribe(onNext: { [weak imagePreview] photos in
+        guard let preview = imagePreview else { return }
+        preview.image = photos.collage(size: preview.frame.size)
+      })
+    .disposed(by: bag)
+    
+    images.asObservable()
+      .subscribe(onNext: { [weak self] photos in
+        self?.updateUI(photos: photos)
+      })
+  }
+  
+  private func updateUI(photos: [UIImage]) {
+    buttonSave.isEnabled = photos.count > 0 && photos.count % 2 == 0
+    buttonClear.isEnabled = photos.count < 6
+    title = photos.count > 0 ? "\(photos.count) photos" : "Collage"
   }
   
   @IBAction func actionClear() {
-
+    images.accept([])
   }
 
   @IBAction func actionSave() {
@@ -53,7 +70,8 @@ class MainViewController: UIViewController {
   }
 
   @IBAction func actionAdd() {
-    
+    let newImages = images.value + [UIImage(named: "IMG_1907.jpg")]
+    images.accept(newImages)
   }
 
   func showMessage(_ title: String, description: String? = nil) {
